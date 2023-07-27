@@ -1,4 +1,5 @@
 from sklearn.metrics import accuracy_score
+import pandas as pd
 from sklearn.metrics import f1_score
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import confusion_matrix
@@ -12,10 +13,12 @@ from xgboost import XGBClassifier
 import shap
 import numpy as np
 import tensorflow as tf 
+from sklearn.cluster import KMeans 
 from tensorflow import keras
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.layers import Activation, Dense, Dropout
 from tensorflow.keras.models import Sequential
+from sklearn.metrics import silhouette_score
 
 import configparser
 
@@ -145,8 +148,63 @@ def explain_results_Kernal_ANN(model,data):
     print(explainer.expected_value)
     
     return shap_values
-    
 
 
+def best_clustering(data, id, max_clusters = 10):
+    n_clusters_list=[]
+    silhouette_list=[]
+    cols=[col for col in data.columns if col != id]
+    data_std = data[cols]
+        
+    for n_c in range(2,max_clusters+1): 
+        kmeans_model = KMeans(n_clusters=n_c, random_state=42).fit(data_std) 
+        labels = kmeans_model.labels_
+        n_clusters_list.append(n_c)
+        silhouette_list.append(silhouette_score(data_std, labels, metric='euclidean'))
     
+    # Best Parameters
+    param1 = n_clusters_list[np.argmax(silhouette_list)]
+    param2 = max(silhouette_list)
+    best_params = param1,param2
     
+    # Data labeling with the best model
+    kmeans_best = KMeans(n_clusters= param1 , random_state=42).fit(data_std) 
+    labels_best = kmeans_best.labels_
+    labeled_data = np.concatenate((data,labels_best.reshape(-1,1)),axis=1)
+        
+    
+    return best_params, labeled_data, n_clusters_list,silhouette_list
+
+
+def generate_cluster_df(data, params):
+    listid=[]
+    listcluster=[]
+    for j in range(params[0]): 
+        for i in range(len(data)):
+            size=len(data[0])-1
+            if(data[i][size]==j):
+                listid.append(data[i][0])
+                listcluster.append(j)
+    # initialize data of lists.
+    data_ = {'id_sujet':listid ,
+            'cluster':listcluster}
+    # Create DataFrame
+    df = pd.DataFrame(data_)
+    
+    return df
+
+#add clusters to the orginal data 
+def addcluster(data_f, ids):
+    list_cluster_ordred=[]
+    for i in range(len(ids)):
+        df=data_f.loc[data_f['id_sujet']==ids[i]]
+        for index,row in df.iterrows():
+            list_cluster_ordred.append(row['cluster'])
+            
+    return list_cluster_ordred 
+
+def train_classifier(model, train_X, train_y):
+    train_y=train_y.astype('int')
+    model.fit(train_X, train_y)
+
+    return model
