@@ -5,7 +5,7 @@
 IArch is a tool that allows archaeologists to make Explainable Artificial Intelligence (XAI) data analyses without having specific programming expertise. The platform covers the complete ML workflow, from data processing and feature selection to applying the ML models and explaining the predictions using the SHapley Additive exPlanations (SHAP). 
 
 ## Requirements : 
-- Python version should be at least python 3.9.1
+- Python version should be at least python 3.9
 - The rest of the requirements are expressed within the file requirements.txt
 
 ## Notes : 
