@@ -5,9 +5,12 @@ from sklearn.preprocessing import MinMaxScaler
 import configparser
 
 #return the dataframe to be used in the classification or clustering 
-def build_data(dataframe,listfeatures_, target_):  
-    listfeatures_.append(target_)
-    df_=dataframe[listfeatures_]
+def build_data(dataframe,listfeatures_, target_=None):
+    if target_==None:
+        df_=dataframe[listfeatures_]
+    else: 
+        listfeatures_.append(target_)
+        df_=dataframe[listfeatures_]
     return df_
 
 #Return the column type object, float, ...   
@@ -16,13 +19,14 @@ def determine_column_type(dataframe, column_name):
     return column_type
 
 #Return the list of catgorical Data 
-def categorical_column(dataframe,target_):
+def categorical_column(dataframe,target_=None):
     list_column_categorical=[]
     for column_name in dataframe.columns:
         type_col=determine_column_type(dataframe,column_name)
         if (type_col=='object' or type_col=='bool' or type_col=='category'):
             list_column_categorical.append(column_name)
-    list_column_categorical.remove(target_)
+    if target_!=None:
+        list_column_categorical.remove(target_)
     return list_column_categorical
 
 #Encode the cetagorical data 
@@ -68,6 +72,20 @@ def pipeline_data_prepare(dataframe,listfeatures_, target_):
     
     return train_X,test_X, train_y, test_y
 
+
+#Return the encoded data 
+def pipeline_data_prepare_clustering(dataframe,listfeatures_,id):
+    #Build the data to be used in training and testing
+    data=build_data(dataframe,listfeatures_,target_=id)
+    #return categorical columns in the data
+    list_categoric=categorical_column(data,target_=id)
+    #encoding the categorical data 
+    data_encoded=encoding_categorical_features(data,list_categoric)
+    columns_to_normalize = [col for col in data_encoded.columns if col != id]
+    data_encoded[columns_to_normalize]=normalizeData(data_encoded[columns_to_normalize])
+    data_encoded=data_encoded[[id] + columns_to_normalize]
+    return data_encoded
+
 # Normalize the Data 
 
 def normalizeData(dataframe): 
@@ -98,6 +116,15 @@ def cross_Validation_splits(dataframe, target_):
 
     
     return train_X,test_X, train_y, test_y
+
+def trainig_data_clustering(data, id):
+    columns = [col for col in data.columns if col != id]
+    data_train=data[columns]
+    train_X=data_train.drop('cluster', axis=1)
+    train_y=data_train['cluster']
+
+    return train_X, train_y
+
 
 
     
