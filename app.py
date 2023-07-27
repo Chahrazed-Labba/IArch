@@ -192,7 +192,9 @@ def train_test_results(alg,train_X,train_y,test_X,test_y, model_type=None):
        st.write("F1 : ", f1)
     
     return fit_model
-    
+
+
+
     
 def plot_shap(shap_values, data, test_y):
     st.subheader("Explainability with SHAP")
@@ -202,22 +204,65 @@ def plot_shap(shap_values, data, test_y):
         fig1, ax1 = plt.subplots()
         shap.summary_plot(shap_values[label], data)
         st.pyplot(fig1)
+
+def plot_clustering_results(n_clusters_list,silhouette_list):
+    st.markdown("**:blue[Clustering Results using K-means]**")
+    fig = plt.figure(figsize=(12,6))
+    ax = fig.add_subplot(111)
+    ax.plot(n_clusters_list,silhouette_list, linewidth=3,label = "Silhouette Score Against # of Clusters")
+    ax.set_xlabel("Number of clusters")
+    ax.set_ylabel("Silhouette score")
+    ax.set_title('Silhouette score according to number of clusters')
+    ax.grid(True)
+    param1 = n_clusters_list[np.argmax(silhouette_list)]
+    param2 = max(silhouette_list)
+    plt.plot(param1,param2, "tomato", marker="*",markersize=20, label = 'Best Silhouette Score')
+    plt.legend(loc="best",fontsize = 'large')
+    st.pyplot(plt)
+   
        
 
 def display_tab3(df):
     st.title("Clustering and Classification to generate new hypothesis")
     st.write("Start ...")
     #List of the models 
-    options_classification=["SVM","RF","ANN","XGboost"]
+    options_classification=["RF"]
     options_clustering=["K-means"]
-    
+
+    selected_options_id = st.selectbox('Select The Identifier to keep track of your data subjects', df.columns)
+    only_feature_= [option for option in df.columns if option != selected_options_id]
     #The list of features
-    selected_options_features=st.multiselect('Select The Data Features', df.columns)
+    selected_options_features=st.multiselect('Select The Data Features', only_feature_)
     #The list of models 
     selected_options_models_classif = st.multiselect('Select  The ML Models for classification', options_classification,default=options_classification)
     #the list of metrics
     selected_options_models_clustering= st.multiselect('Select The ML Models for clustering ', options_clustering,default=options_clustering)
-    button_clicked = st.button('Start !')       
+    button_clicked = st.button('Start !')  
+    if button_clicked:
+        #data to be clustered
+        data_encoded=data_p.pipeline_data_prepare_clustering(df,selected_options_features,selected_options_id)
+        # Cluster the data using K-means 
+        best_params, labeled_data, n_clusters_list,silhouette_list=model.best_clustering(data_encoded,selected_options_id)
+        plot_clustering_results(n_clusters_list,silhouette_list)
+        # Save the clusterd data with full information into a CSV file 
+        df_cluster=model.generate_cluster_df(labeled_data,best_params)
+        ids=data_encoded[selected_options_id].unique()
+        list_cluster=model.addcluster(df_cluster,ids)
+        data_encoded['cluster']=list_cluster
+        csv = data_encoded.to_csv(index=False)
+        # Apply RF algorithm 
+        st.header('**Random Forest Results**')
+        clf=model.randomForest()
+        train_X, train_y=data_p.trainig_data_clustering(data_encoded,selected_options_id)
+        clf=model.train_classifier(clf,train_X,train_y)
+        # Apply Shap Value 
+        container1 = st.container()
+        with container1:
+            shap_values=model.explain_results_Tree(clf, train_X)
+            plot_shap(shap_values,train_X,train_y)
+
+        st.download_button(label="Download data as CSV", data=csv,file_name="clustering.csv")
+    
 
 # Define function for the welcome page
 def display_welcome_page():
