@@ -1,0 +1,10 @@
+streamlit
+pandas-profiling
+scikit-learn
+xgboost
+shap
+tensorflow
+
+
+
+
