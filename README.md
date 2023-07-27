@@ -13,4 +13,5 @@ IArch is a tool that allows archaeologists to make Explainable Artificial Intell
  - In its current version the tool supports only the analysis  of numerical categorical data.
 
 ## Run 
-'''streamlit run app.py'''
+```bash
+streamlit run app.py
