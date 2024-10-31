@@ -1,0 +1,5 @@
+To do list :
+- regarder comment créer une compilation des fichiers pour créer un exécutable qui tournerait sur toutes les machines
+- pour la classification, regarder comment rendre disponible tous les résultats des algo, y compris les prédictions de groupe pour chaque individu (un bouton "download" aussi ?)
+- pour le profiling et le clustering, dès que l'on clic sur le bouton "download" pour télécharger soit le profiling_report soit le résultat du k-means, on perd l'affichage, tout redevient comme avant le lancement de l'analyse
+- regarder pour le problème de mise en cache de la base de données (si on veut retourner à une étape précédente, on a une erreur qui apparaît)
