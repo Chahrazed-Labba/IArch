@@ -34,7 +34,7 @@ Provide information on the direction of the folder containing the application
 ```bash
 cd D:\IArch-Visual studio - streamlit
 ```
-This is an example, change your information. 
+This is an example, change with your information. 
 
 ## Requirements :
 And finally install the requirements
