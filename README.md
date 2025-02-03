@@ -8,7 +8,7 @@ IArch is a tool that allows archaeologists to make Explainable Artificial Intell
  - This project is still under development, and further experiments with archaeologists are planned for the near future.
  - In its current version the tool supports only the analysis  of numerical categorical data.
 
-## Requirements : 
+## Environment : 
 - Python version should be at least python 3.9
 - The rest of the requirements are expressed within the file requirements.txt
 - To avoid conflicts with existing pyton configurations, we recommend using a virtual environment. 
@@ -30,12 +30,19 @@ source venv/bin/activate
 ```
 
 ## Location file : 
+Provide information on the direction of the folder containing the application 
+```bash
+cd D:\IArch-Visual studio - streamlit
+```
+This is an example, change your information. 
+
+## Requirements :
 And finally install the requirements
 ```bash
 pip install -r requirements.txt
 ```
 
-## Finally run the App
+## Finally run the App : 
 ```bash
 streamlit run app.py
 ```
