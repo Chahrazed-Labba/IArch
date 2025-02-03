@@ -29,6 +29,7 @@ On Mac
 source venv/bin/activate
 ```
 
+## Location file : 
 And finally install the requirements
 ```bash
 pip install -r requirements.txt
