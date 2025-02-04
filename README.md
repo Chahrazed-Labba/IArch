@@ -13,23 +13,23 @@ IArch is a tool that allows archaeologists to make Explainable Artificial Intell
 - The rest of the requirements are expressed within the file requirements.txt
 - To avoid conflicts with existing pyton configurations, we recommend using a virtual environment. 
 
-Create the environment.
-On Windows
+### Create the environment.
+#### On Windows
 ```bash
 python -m venv venv
 ```
-On Mac
+#### On Mac
 ```bash
 python3 -m venv venv
 ```
-Then activate it.
+### Then activate it.
 
-On windows
+#### On windows
 ```bash
 venv\Scripts\activate
 ```
 
-On Mac
+#### On Mac
 ```bash
 source venv/bin/activate
 ```
