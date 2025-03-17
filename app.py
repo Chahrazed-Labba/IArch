@@ -10,11 +10,24 @@ import numpy as np
 import shap
 from statistics import mean
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import matplotlib.colors as mcolors
 import data_upload
 import data_prepare
 import models as model
 import io 
 from fpdf import FPDF
+from itertools import combinations
+import networkx as nx
+import networkx.algorithms.community as nx_comm
+import warnings
+warnings.filterwarnings("ignore")
+
+
+
+
+
+
 
 ################## Write the home page ###############################
 title_format = f'<p style="text-align: center; font-family: ' \
@@ -134,7 +147,7 @@ def display_tutorial_page():
     st.write(":warning::warning: <b>If this is your first time with IArch, please download the tutorial.</b> :warning::warning:", unsafe_allow_html=True)
 
     # création / importation du fichier pdf pour téléchargement en pdf
-    with open("D:\IArch-Visual studio - streamlit/IArch_tutorial_final_V1.pdf", "rb") as pdf_file:
+    with open("D:\IArch-Visual studio - streamlit/IArch_tutorial_V1.pdf", "rb") as pdf_file:
         pdf_bytes = pdf_file.read()
     
     st.download_button(
@@ -417,7 +430,8 @@ def display_classification_page(df):
                     container1 = st.container()
                     with container1:
                         shap_values=model.explain_results_Tree(xgb, test_X)
-                        plot_shap(shap_values,test_X,test_y)
+
+                        plot_shap_xgb(shap_values,test_X,test_y)
 
                         st.caption(":orange[To download the plot, click on the ⤡ icon, and save the plot with right click.]", unsafe_allow_html=True)
                 else : 
@@ -470,6 +484,7 @@ def train_test_results(alg,train_X,train_y,test_X,test_y, model_type=None):
     
     return fit_model
 
+
 def plot_shap(shap_values, data, test_y):
     st.subheader("Explainability with SHAP")
     # Generate the summary plot
@@ -477,6 +492,15 @@ def plot_shap(shap_values, data, test_y):
         st.markdown(f'**:blue[Waterfall plot for the Label: {label}]**')
         fig1, ax1 = plt.subplots()
         shap.summary_plot(shap_values[label], data)
+        st.pyplot(fig1)
+
+def plot_shap_xgb(shap_values, data, test_y):
+    st.subheader("Explainability with SHAP")
+    # Generate the summary plot
+    for label in np.unique(test_y):
+        st.markdown(f'**:blue[Waterfall plot for the Label: {label}]**')
+        fig1, ax1 = plt.subplots()
+        shap.summary_plot(shap_values, data)
         st.pyplot(fig1)
 
 def plot_clustering_results(n_clusters_list,silhouette_list):
@@ -548,13 +572,496 @@ def display_clustering_page(df):
 
         st.download_button(label="Download results as CSV", data=csv,file_name="clustering.csv")
 
+##################### Try to add network analyses ####################
+
+def display_network_analyses_page():
+    st.markdown("""
+    <style>
+    .stButton>button {
+        background-color: #F8D78C; /* Green background */
+        border: ; /* Remove borders */
+        color: black; /* Black text */
+        padding: 8px 10px; /* Some padding */
+        text-align: center; /* Center the text */
+        text-decoration: none; /* Remove underline */
+        display: inline-block; /* Make the buttons appear inline */
+        font-size: 14px; /* Increase font size */
+        margin: 1px 1px; /* Add some margin */
+        cursor: pointer; /* Add a pointer cursor on hover */
+        border-radius: 8px; /* Rounded corners */
+        width: 200px;
+    }
+    .stButton>button:hover {
+        background-color: #262730; /* Darker orange on hover */
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    st.title("Try Social Network Analyses?")
+
+    # Initialisation des variables
+    df = None
+    df_final = None
+
+    if "file_uploaded" not in st.session_state:
+        st.session_state.file_uploaded = False
+
+
+    # Uploading part
+    st.subheader("Uploading your data")
+    data_file = st.file_uploader("Upload a CSV file. The first column of your dataset must contain the identifier of your individuals.", type=["csv"])
+    st.write("⚠️*If you wish to use geographical positions as node coordinates, please identify your columns with identifiers: **LocalisationX** and **LocalisationY**.*")
+    
+    if data_file is not None:
+        st.session_state.file_uploaded = True  # Marque que le fichier est uploadé
+        st.markdown("<span style='color:#35DD51'> Dataset uploaded successfully.</span>", unsafe_allow_html=True)
+        df = data_upload.upload_data(data_file)
+        df.columns.values[0] = 'Id'  # Remplace le nom de la première colonne par "Id"
+        st.session_state.file_uploaded = True
+        st.write("Data Overview")
+        st.write(df)
+    else:
+        st.markdown("<span style='color:#FF0000'> No file uploaded yet</span>", unsafe_allow_html=True)
+ 
+
+    
+
+   # Initialisation des variables dans st.session_state si elles n'existent pas
+    if "df_link_created" not in st.session_state:
+        st.session_state.df_link_created = pd.DataFrame()  # Initialisation avec un DataFrame vide
+
+    if "df_link_uploaded" not in st.session_state:
+        st.session_state.df_link_uploaded = pd.DataFrame()  # Initialisation avec un DataFrame vide
+
+    if "df_link_created_2" not in st.session_state:
+        st.session_state.df_link_created_2 = pd.DataFrame()  # Initialisation avec un DataFrame vide
+
+    if "df_final" not in st.session_state:
+        st.session_state.df_final = pd.DataFrame()  # Initialisation avec un DataFrame vide
+
+    #permettre l'ajout d'un fichier de lien déjà fait
+    st.subheader('Do you want to create a link matrix?')
+    
+    choice = st.radio("",["Select","Yes", "No"])
+   
+    #création d'une matrice de lien avec les variables sélectionnées
+    if choice == "Select":
+        st.write("Please chose one of the option")
+
+    if choice == "Yes":
+        st.subheader('Select the features')
+        container_width = 500
+        container_height = 300
+        only_feature_ = [option for option in df.columns ]
+        selected_option_features = st.multiselect('', only_feature_)
+        features_selected = bool(selected_option_features)
+
+        #add button to create link matrice for networks
+        col1, col2, col3, col4, col5, col6 = st.columns([1, 1, 1, 1, 1, 1])
+        with col3:
+            button = st.button("Click here to create the link matrix ", disabled=not features_selected)
+
+        if not features_selected:
+            st.warning("⚠️ Please select at least one column to create links.")
+
+        if button:
+            if selected_option_features is not None:
+                link_data_created = []
+
+                df.rename(columns={df.columns[0]: 'Id'}, inplace=True)
+
+                for column in selected_option_features:
+                    for value, group in df.groupby(column):
+                        # Créer des paires pour chaque groupe
+                        paires = combinations(group['Id'], 2) if 'Id' in df.columns else combinations(group.index, 2)
+                        for source, target in paires:  # Cette boucle doit être dans celle des groupes
+                            link_data_created.append({'Source': source, 'Target': target, 'Link': f"{column}_{value}"})
+
+
+                # Création de la DataFrame des liens
+                df_link_created = pd.DataFrame(link_data_created)
+                st.session_state.df_link_created = True  # Marque que le fichier est uploadé
+                st.write(f"Total number of links created: {len(df_link_created)}")
+                st.write("Overview of links created :", df_link_created.head(50))  
+                st.session_state.df_link_created = df_link_created
+
+ 
+
+                # Téléchargement du fichier généré
+                if not df_link_created.empty:
+                    csv = df_link_created.to_csv(index=False).encode('utf-8')
+                    st.download_button(
+                        label="Download link dataset in .csv",
+                        data=csv,
+                        file_name="df_link_created.csv",
+                        mime="text/csv",
+                    )
+
+    if choice == "No":
+        st.subheader('Maybe you want to add your own link matrix?')
+        link_file = st.file_uploader("Upload a CSV file. If you already have a link dataset (genetic, social, cultural...), please upload the file here.\n"
+        "⚠️ **Note:** Your file should contain at least **2 columns: Source and Target**.",
+        type=["csv"])
+
+        if link_file is not None:
+            st.session_state.df_link_uploaded = data_upload.upload_data(link_file)  # Marque que le fichier est uploadé
+            st.markdown("<span style='color:#35DD51'> Dataset uploaded successfully.</span>", unsafe_allow_html=True)
+            st.session_state.df_link_uploaded.rename(columns={st.session_state.df_link_uploaded.columns[0]: 'Source'}, inplace=True)
+            st.session_state.df_link_uploaded.rename(columns={st.session_state.df_link_uploaded.columns[1]: 'Target'}, inplace=True)
+            st.session_state.df_link_uploaded.rename(columns={st.session_state.df_link_uploaded.columns[2]: 'Link'}, inplace=True)
+            st.write(f"Total number of links created: {len(st.session_state.df_link_uploaded)}")
+            st.write("Overwiew of links:")
+            st.write(st.session_state.df_link_uploaded)
+            
+        else:
+            st.session_state.df_link_uploaded = False
+            st.markdown("<span style='color:#FF0000'> No file uploaded. Don't worry if you get the error *‘AttributeError: “bool” object has no attribute “empty”’*, this means  you need to upload your file by clicking on *‘Browse files’*.</span>", unsafe_allow_html=True)
+
+        if not st.session_state.df_link_uploaded.empty:
+        
+            st.subheader("Do you want to create a link matrix anyway?")
+            choice2 = st.radio("", ["No", "Yes"])
+
+            if choice2 == "Yes":
+                st.subheader('Select the features ')
+                container_width = 500
+                container_height = 300
+                only_feature_2 = [option for option in df.columns ]
+                selected_option_features_2 = st.multiselect('', only_feature_2, key="feature_selection_2")
+                features_selected_2 = bool(selected_option_features_2)
+
+                #add button to create link matrice for networks
+                col1, col2, col3, col4, col5, col6 = st.columns([1, 1, 1, 1, 1, 1])
+                with col3:
+                    button = st.button("Click here to create the link matrix ", disabled=not features_selected_2, key="button_create_matrix_1")
+
+                if not features_selected_2:
+                    st.warning("⚠️ Please select at least one column to create links.")
+
+                if button:
+                    if selected_option_features_2 is not None:
+                        link_data_created_2 = []
+
+                        df.rename(columns={df.columns[0]: 'Id'}, inplace=True)
+
+                        for column in selected_option_features_2:
+                            for value, group in df.groupby(column):
+                                # Créer des paires pour chaque groupe
+                                paires = combinations(group['Id'], 2) if 'Id' in df.columns else combinations(group.index, 2)
+                                for source, target in paires:  # Cette boucle doit être dans celle des groupes
+                                    link_data_created_2.append({'Source': source, 'Target': target, 'Link': f"{column}_{value}"})
+
+
+                        # Création de la DataFrame des liens
+                        df_link_created_2 = pd.DataFrame(link_data_created_2)
+                        st.write(f"Total number of links created: {len(df_link_created_2)}")
+                        st.write("Overview of links created :", df_link_created_2.head(50))  
+                        st.session_state.df_link_created_2 = df_link_created_2
+    
+
+                        # Téléchargement du fichier généré
+                        if not df_link_created_2.empty:
+                            csv = df_link_created_2.to_csv(index=False).encode('utf-8')
+                            st.download_button(
+                                label="Download link dataset in .csv",
+                                data=csv,
+                                file_name="df_link_created_2.csv",
+                                mime="text/csv",
+                            )
+            else:
+                st.success("You are ready for data verification!")
+
+
+
+    # Créer un bouton pour vérifier les jeux de données
+    # Créer un bouton pour vérifier les jeux de données
+    if st.button("Verify Datasets"):
+        # Vérification et affichage des aperçus des jeux de données chargés
+        if isinstance(st.session_state.df_link_created, pd.DataFrame) and not st.session_state.df_link_created.empty:
+            st.write(f"Total number of links created: **{len(st.session_state.df_link_created)}**")
+            st.write("Overview of links created:", st.session_state.df_link_created.head(50))
+        else:
+            st.write("⚠️ No links created at first step.")
+
+        if not st.session_state.df_link_uploaded.empty:
+            st.write(f"Total number of links uploaded: **{len(st.session_state.df_link_uploaded)}**")
+            st.write("Overview of links uploaded:", st.session_state.df_link_uploaded.head(50))
+        else:
+            st.write("⚠️ No links uploaded or dataset is empty.")
+
+        if isinstance(st.session_state.df_link_created_2, pd.DataFrame) and not st.session_state.df_link_created_2.empty:
+            st.write(f"Total number of links created (2): **{len(st.session_state.df_link_created_2)}**")
+            st.write("Overview of links created (2):", st.session_state.df_link_created_2.head(50))
+        else:
+            st.write("⚠️ No links created (2).")
+
+
+        
+    if st.button("Combine your dataset"):
+        # Liste pour stocker les DataFrames à combiner
+        dfs_to_combine = []
+
+        # Vérifie df_link_created
+        if not st.session_state.df_link_created.empty:
+            dfs_to_combine.append(st.session_state.df_link_created)
+
+        # Vérifie df_link_uploaded
+        if not st.session_state.df_link_uploaded.empty:
+            dfs_to_combine.append(st.session_state.df_link_uploaded)
+
+        # Vérifie df_link_created_2
+        if not st.session_state.df_link_created_2.empty:
+            dfs_to_combine.append(st.session_state.df_link_created_2)
+
+        # Combinaison des DataFrames non vides
+        if dfs_to_combine:
+            df_final = pd.concat(dfs_to_combine, ignore_index=True)  # Ignore index pour reindexer après concaténation
+            st.write(f"Total number of links in combined file: **{len(df_final)}**")
+            st.write("Combined Dataset Overview:", df_final.head(50))  # Afficher un aperçu du DataFrame combiné
+            st.success("✅ Your data is ready! You can proceed with the network analyses.") 
+
+            # Conversion du DataFrame en CSV pour le téléchargement
+            csv = df_final.to_csv(index=False).encode('utf-8')
+
+            # Bouton de téléchargement
+            st.download_button(
+                label="Download Combined Dataset as CSV",
+                data=csv,
+                file_name="df_final.csv",
+                mime="text/csv",
+            )
+        else:
+            st.write("⚠️ Please add or create link matrix before combining.")
+
+        if df_final is not None:
+            source_count = df_final['Source'].value_counts()
+            target_count = df_final['Target'].value_counts()
+            total_count = source_count.add(target_count, fill_value=0)
+            st.session_state.df_final = df_final
+
+
+    if st.session_state.df_final is not None and not st.session_state.df_final.empty:
+        # Calcul des comptages de source et cible
+        source_count = st.session_state.df_final['Source'].value_counts()
+        target_count = st.session_state.df_final['Target'].value_counts()
+        total_count = source_count.add(target_count, fill_value=0)
+
+
+    ####### créer le graph ############################################################
+    def load_config_network():
+        config_network = configparser.ConfigParser()
+        config_network.read('config_net.ini')
+        return config_network
+    
+    def save_config_network(config_network):
+        with open('config_net.ini', 'w') as configfile_net:
+            config_network.write(configfile_net)
+    
+    config_network = load_config_network()
+
+    # Récupérer les valeurs du fichier .ini
+    graph_type = config_network.get("Graph_type", "type", fallback="Directed")
+    layout_type = config_network.get("Layout_type", "layout", fallback="spring_layout")
+    seed = config_network.getint("Layout_type", "seed", fallback=42)
+    node_color = config_network.get("Node", "n_color", fallback="#87CEEB")
+    node_size = config_network.getint("Node", "n_size", fallback=500)
+    edge_color = config_network.get("Edge", "e_color", fallback="#808080")
+    edge_width = config_network.getfloat("Edge", "e_width", fallback=0.5)
+    fig_width = config_network.getfloat("Fig_size", "Fig_width", fallback=15)
+    fig_height = config_network.getint('Fig_size', "Fig_height", fallback=15)
+    export_format = config_network.get("Export_format", "format", fallback="png")
+
+    st.sidebar.header("Graph Settings")
+    st.sidebar.markdown("**Graph Type**")
+    graph_type = st.sidebar.radio("",["Directed", "Undirected"], index=0 if graph_type == "Directed" else 1, label_visibility="collapsed")
+    st.sidebar.markdown("**Layout Type**")
+    layout_type = st.sidebar.selectbox("", 
+                                       ["spring_layout", "circular_layout", "kamada_kawai_layout", "gps_layout"], 
+                                       index=["spring_layout", "circular_layout", "kamada_kawai_layout", "gps_layout"].index(layout_type),
+                                       label_visibility="collapsed")
+    
+    st.sidebar.markdown("**Node Coloring**")
+    node_color_type = st.sidebar.radio("", 
+                                       ["Fixed", "Gradient by link count"],
+                                       label_visibility="collapsed")
+    if node_color_type == "Fixed":
+        node_color = st.sidebar.color_picker("Node Color:", node_color)
+
+
+    st.sidebar.markdown("**Node Size**")
+    node_size_type = st.sidebar.radio("Node Size:", 
+                                      ["Fixed", "Proportional to links count"],
+                                      label_visibility="collapsed")
+    if node_size_type == "Fixed":
+        node_size = st.sidebar.slider("Node Size:", min_value=100, max_value=2000, value=500, step=50)
+    
+    st.sidebar.markdown("**Edge Coloring**")
+    edge_color = st.sidebar.color_picker("Edge Color:", edge_color, label_visibility="collapsed")
+    st.sidebar.markdown("**Edge Width**")
+    edge_width = st.sidebar.slider("Edge Width:", min_value=0.1, max_value=5.0, value=edge_width, step=0.1, label_visibility="collapsed")
+    
+    # Sauvegarde des paramètres modifiés
+    if st.sidebar.button("Save Network Parameters"):
+        config_network["Graph_type"] = {"type": graph_type}
+        config_network["Layout_type"] = {"layout": layout_type, "seed": str(seed)}
+        config_network["Node"] = {"n_color": config_network.get("Node", "n_color", fallback="#87CEEB")}
+        config_network["Edge"] = {"e_color": config_network.get("Edge", "e_color", fallback="#808080"),"e_width": str(edge_width)}
+
+        save_config_network(config_network)
+
+    st.sidebar.markdown("**Figure Dimensions (Width/Height)**")
+    fig_width = st.sidebar.slider("Width", min_value=5, max_value=25, value=15, step=1, label_visibility="collapsed")
+    fig_height = st.sidebar.slider("Height", min_value=5, max_value=25, value=15, step=1, label_visibility="collapsed")
+    
+    st.sidebar.markdown("**Choose download format**")
+    export_format = st.sidebar.selectbox("Choose download format:", ["png", "svg", "pdf"], index=0, label_visibility="collapsed")
+
+
+
+    if st.button("Start Network Analyses") :
+        if st.session_state.df_final.empty:
+            st.warning("Please combine your files first, even if you have only one file.")
+        if not st.session_state.df_final.empty:
+            st.session_state.start_analysis = True  # Enregistre l'état de l'analyse
+            if "graph_fig" not in st.session_state:
+                st.session_state.graph_fig = None
+            if st.session_state.get("start_analysis", False):
+                with st.spinner('Please be patient: The network is currently being creating, this may take some time depending on the size of your data...'):
+                    if {"Source", "Target"}.issubset(st.session_state.df_final.columns):
+                        # Création du graphe en fonction du type sélectionné
+                        G = nx.DiGraph() if graph_type == "Directed" else nx.Graph()
+                        G = nx.from_pandas_edgelist(st.session_state.df_final, source="Source", target="Target", create_using=G)
+
+                        # Si coloration dégradée, utiliser la palette "Reds" inversée
+                        if node_color_type == "Gradient by link count":
+                            if 'total_count' in locals():
+                                cmap = cm.get_cmap("Reds")  # Palette inversée
+                                log_total_count = np.log1p(total_count)  # log(1 + x) pour éviter log(0)
+                                norm = (log_total_count - log_total_count.min()) / (log_total_count.max() - log_total_count.min())
+                                node_color = [mcolors.to_hex(cmap(norm.get(node, 0))) for node in G.nodes()]
+                            else:
+                                st.warning("No data available for gradient coloring. Defaulting to fixed color.")
+
+                        if node_size_type == "Proportional to links count":
+                        # Si total_count existe, normaliser les valeurs pour avoir des tailles de nœuds raisonnables
+                            if 'total_count' in locals() and not total_count.empty:
+                                min_size, max_size = 500, 2000  # Taille min et max des nœuds
+                                # Appliquer une transformation logarithmique
+                                log_total_count = np.log1p(total_count)  # log(1 + x) pour éviter log(0)
+                                norm = (log_total_count - log_total_count.min()) / (log_total_count.max() - log_total_count.min())  
+                                node_size = [min_size + norm.get(node, 0) * (max_size - min_size) for node in G.nodes()]
+                            else:
+                                st.warning("No data available for proportional node size. Defaulting to fixed size.")
+                                node_size = 500  # Valeur par défaut si les données sont absentes
+
+                        if layout_type == "gps_layout":
+                            # Vérifier si les coordonnées GPS existent dans le DataFrame
+                            if 'LocalisationX' in df.columns and 'LocalisationY' in df.columns:
+                                pos = {}
+                                for node in G.nodes():
+                                    # Vérifier si le nœud existe dans le DataFrame
+                                    matching_row = df.loc[df['Id'] == node]
+                                    if not matching_row.empty:  # Si le nœud est trouvé
+                                        x = matching_row['LocalisationX'].values[0]
+                                        y = matching_row['LocalisationY'].values[0]
+                                        pos[node] = (x, y)
+                                    else:
+                                        # Si le nœud n'est pas trouvé, définir des coordonnées par défaut ou gérer autrement
+                                        pos[node] = (0, 0)  # Exemple : coordonnées par défaut
+                            else:
+                                st.warning("Coordinates for GPS layout are missing. Please ensure 'LocalisationX' and 'LocalisationY' columns are present in your dataset.")
+                                pos = nx.kamada_kawai_layout(G)  # Fallback à un layout standard si les coordonnées manquent
+                        
+                        # Stocker le graphe pour éviter de le perdre
+                        st.session_state.G = G
+
+                        # Choix de la mise en page du graphe
+                        if layout_type == "spring_layout":
+                            pos = nx.spring_layout(G, seed=seed)
+                        elif layout_type == "circular_layout":
+                            pos = nx.circular_layout(G)
+                        elif layout_type == "kamada_kawai_layout":
+                            pos = nx.kamada_kawai_layout(G)
+
+                        fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+                        nx.draw(G, pos, with_labels=True, node_color=node_color, edge_color=edge_color, font_size=10, width=edge_width, node_size=node_size)
+                        
+
+                        # Stocker la figure pour éviter de la perdre après rafraîchissement
+                        st.session_state.graph_fig = fig
+
+                        if st.session_state.graph_fig:
+                            st.pyplot(st.session_state.graph_fig)
+
+                            # Sélection du format de téléchargement
+                            buf = io.BytesIO()
+                            st.session_state.graph_fig.savefig(buf, format=export_format)
+                            buf.seek(0)
+                            st.download_button(
+                                label=f"Download Graph as {export_format.upper()}",
+                                data=buf,
+                                file_name=f"IArch_network.{export_format}",
+                                mime=f"image/{export_format}"
+                            )
+                        # Affichage des informations du graphe
+                        st.write(f"✅ Network successfully created ")
+
+                        # Affichage des statistiques du réseau
+                        st.subheader("📊 Network Statistics")
+                        st.write(f"**🟢 Number of Nodes:** {G.number_of_nodes()}")
+                        st.write("*Number of individuals inside the network.*")
+                        st.write(f"**🔵 Number of Edges:** {G.number_of_edges()}")
+                        st.write("*Number of link between two individuals. If individual A has 4 links with individuals B, it is count as 1 edge.*")
+
+                        # Calcul du nombre de fois qu'un individu est impliqué dans une paire (source ou cible)
+                        source_count = st.session_state.df_final['Source'].value_counts()
+                        target_count = st.session_state.df_final['Target'].value_counts()
+                        total_count = source_count.add(target_count, fill_value=0)
+
+                        # Affichage des 10 individus les plus impliqués
+                        st.subheader("📊 Most Involved Nodes (by degree count)")
+                        st.write("**Top 10 most involved nodes:**")
+                        most_involved = total_count.sort_values(ascending=False).head(10).reset_index()
+                        most_involved.columns = ["Id", "Number of links"]
+                        st.dataframe(most_involved)
+                        st.subheader("📊 Less Involved Nodes (by degree count)")
+                        st.write("**Top 10 less involved nodes:**")
+                        less_involved = total_count.sort_values(ascending=True).head(10).reset_index()
+                        less_involved.columns = ["Id", "Number of links"]
+                        st.dataframe(less_involved)
+
+                        # Affichage du nombre d'occurrences pour chaque individu
+                        st.write("**Number of interactions for each individual:**")
+                        interaction_count = total_count.sort_values(ascending=True)
+                        # Renommer les colonnes
+                        interaction_count = interaction_count.reset_index()
+                        interaction_count.columns = ["Id", "Number of links"]
+                        st.dataframe(interaction_count)
+                        csv_interaction_count = interaction_count.to_csv(index=True).encode('utf-8')
+                        st.download_button(
+                            label="Download Interaction Count Data (.csv)",
+                            data=csv_interaction_count,
+                            file_name="interaction_count.csv",
+                            mime="text/csv",
+                            )
+
+
+
+
+
+
+
+
+    return df
+
+   
 
 ##################### render the App ###############################
 df = pd.DataFrame()
 def main():
     st.set_page_config(page_title="IArch", page_icon="☠️")
     st.sidebar.title("Welcome in IArch")
-    page = st.sidebar.radio("Go to", ("Home Page", "Tutorial", "Services"))
+    page = st.sidebar.radio("Go to", ("Home Page", "Tutorial", "Services", "Try Social Network Analyses?"))
 
     if page == "Home Page":
         display_welcome_page()
@@ -579,6 +1086,10 @@ def main():
         elif selected_tabs == "Clustering":
             df=st.session_state.df
             display_clustering_page(df)
+
+    elif page == "Try Social Network Analyses?":
+        display_network_analyses_page()
+
 
 
 
