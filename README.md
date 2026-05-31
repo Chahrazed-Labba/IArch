@@ -57,6 +57,23 @@ After creating it, you need to activate it:
 ```bash
 env\Scripts\activate
 ```
+When trying to activate the virtual environment in PowerShell, you may encounter an error like this:
+```bash
+venv\Scripts\activate : File ... cannot be loaded because running scripts is disabled on this system.
+```
+A simple solution is to temporarily allow script execution only for the current PowerShell session. Run the following command directly in the your current terminal:
+```bash
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+After running the command above, activate the virtual environment:
+```bash
+.\venv\Scripts\Activate.ps1
+```
+If everything works correctly, your PowerShell prompt will change and display the virtual environment name, for example:
+```bash
+(venv) PS C:\Users\YourName\MyProject>
+```
+
 ### Install the requirements file
 You can now install the requirements file
 ```bash
