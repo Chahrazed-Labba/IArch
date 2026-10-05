@@ -181,8 +181,7 @@ cd /path/to/IArch
 Activate the virtual environment
 ```bash
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-source my_venv/bin/activate
-```
+.\my_env\Scripts\Activate.ps1```
 Run IArch:
 ```bash
 streamlit run app.py
