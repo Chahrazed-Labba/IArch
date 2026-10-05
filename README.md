@@ -180,6 +180,7 @@ cd /path/to/IArch
 ```
 Activate the virtual environment
 ```bash
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 source my_venv/bin/activate
 ```
 Run IArch:
