@@ -177,13 +177,70 @@ The application will then open in your default browser. You can now use it witho
 Navigate to the project directory (where you created the virtual environment):
 ```bash
 cd /path/to/IArch
+Change "/path/to/IArch" by your own directory.
 ```
+
+
 Activate the virtual environment
 ```bash
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\my_env\Scripts\Activate.ps1```
+Change "my_env" by the name of your own environnement
 ```
+
 Run IArch:
 ```bash
 streamlit run app.py
 ```
+## If you already have another python version on your computer, please follow the next advices. 
+Verify the current version of python
+```bash
+python --version
+```
+You may have
+```bash
+Python 3.11.9
+```
+Then, verify all version of python already installed on your computer
+```bash
+py -0p
+```
+If you have multiple versions of Python, you should get this:
+```bash
+Installed Pythons found by C:\windows\py.exe Launcher for Windows
+ -3.9-64        C:\Users\AppData\Local\Programs\Python\Python39\python.exe
+ -3.11-64       C:\Users\AppData\Local\Programs\Python\Python311\python.exe
+```
+
+Now, create a new environnement with python 3.9.0
+```bash
+cd C:\mon_projet
+py -3.9 -m venv .env_IArch
+```
+After creating it, you need to activate it:
+```bash
+.env_IArch\Scripts\activate
+```
+When trying to activate the virtual environment in PowerShell, you may encounter an error like this:
+```bash
+.env_IArch\Scripts\activate : File ... cannot be loaded because running scripts is disabled on this system.
+```
+A simple solution is to temporarily allow script execution only for the current PowerShell session. Run the following command directly in the your current terminal:
+```bash
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+After running the command above, activate the virtual environment:
+```bash
+.\.env_IArch\Scripts\Activate.ps1
+```
+If everything works correctly, your PowerShell prompt will change and display the virtual environment name, for example:
+```bash
+(venv) PS C:\Users\YourName\MyProject>
+```
+And then verify python 3.9.0 is correctly installed
+```bash
+python --version
+```
+And now, please refer to the "Install the requirements file" part to run the App! 
+
+And Enjoy!
