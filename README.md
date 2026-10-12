@@ -1,3 +1,16 @@
+# 12.10.2026 - IMPORTANT UPDATE - "IArch_V2.zip"
+In this update, we have added a page that allows you to predict data using the leave-one-out method (Classification for prediction). 
+The tutorial is currently being updated and will be uploaded soon.
+Download the .zip archive IArch_V2 and copy and paste all the files into your IArch folder, in the SAME location as your virtual environment. 
+If you are asked to replace certain files (notably ‘READ_ME.txt’), do so. 
+Then activate your virtual environment and run the application:
+```bash
+streamlit run app-2.py
+``` 
+There’s no need to reinstall all the dependencies. 
+
+
+
 # IArch
 
 ## Presentation :
